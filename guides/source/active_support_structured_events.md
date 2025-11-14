@@ -3,7 +3,7 @@
 Active Support Structured Events
 ================================
 
-Active Support provides a unified API for reporting *structured events* inside your application. Structured events capture named facts about what happened, when it happened, and relevant contextual data. They form the foundation for Rails’ observability story and can be exported to any external provider.
+Active Support provides a unified API for reporting *structured events* inside your application. Structured events capture named facts about what happened, when it happened, and relevant contextual data. They form the foundation for Rails' observability story and can be exported to any external provider.
 
 This guide explains the concepts, design, and usage patterns behind structured events, and how Rails integrates them with framework instrumentation.
 
@@ -248,10 +248,10 @@ end
 Key behaviors:
 
 * auto-names methods based on the notification name
-* supports silencing “debug-only” events
+* supports silencing "debug-only" events
 * forwards errors to `ActiveSupport.error_reporter`
 
-These subscribers form the backbone of Rails’ built-in events.
+These subscribers form the backbone of Rails' built-in events.
 
 ---
 
@@ -272,12 +272,442 @@ Framework Hooks (Structured Events Emitted by Rails)
 
 Rails emits structured events across the framework covering controllers, jobs, database activity, caching, mailing, streaming, and more.
 
-A full catalog will appear in this section, mirroring the style used in the ActiveSupport::Notifications guide:
+### Action Controller
 
-* event name
-* payload keys
-* example payload
-* when the event occurs
+#### `action_controller.request_started`
 
-TODO: Fill in this section.
+| Key           | Value                                                     |
+| ------------- | --------------------------------------------------------- |
+| `:controller` | The controller name                                       |
+| `:action`     | The action                                                |
+| `:format`     | html/js/json/xml etc                                      |
+| `:params`     | Hash of request parameters without any filtered parameter |
+
+#### `action_controller.request_completed`
+
+| Key               | Value                                                      |
+| ----------------- | ---------------------------------------------------------- |
+| `:controller`     | The controller name                                        |
+| `:action`         | The action                                                 |
+| `:status`         | HTTP status code                                           |
+| `:status_name`    | Name of HTTP status using `Rack::Utils::HTTP_STATUS_CODES` |
+| `:duration_ms`    | Total duration of the request in ms                        |
+| `:gc_time_ms`     | Amount spent in garbage collection in ms                   |
+
+#### `action_controller.file_sent`
+
+| Key            | Value                               |
+| -------------- | ----------------------------------- |
+| `:path`        | Complete path to the file           |
+| `:duration_ms` | Total duration of the request in ms |
+
+#### `action_controller.data_sent`
+
+| Key            | Value                               |
+| -------------- | ----------------------------------- |
+| `:filename`    | Name of the file being sent         |
+| `:duration_ms` | Total duration of the request in ms |
+
+####  `action_controller.redirected`
+
+| Key          | Value                                    |
+| ------------ | ---------------------------------------- |
+| `:location`  | URL to redirect to                       |
+
+#### `action_controller.callback_halted`
+
+| Key       | Value                         |
+| --------- | ----------------------------- |
+| `:filter` | Filter that halted the action |
+
+#### `action_controller.unpermitted_parameters`
+
+| Key                 | Value                                                                   |
+| ------------------- | ----------------------------------------------------------------------- |
+| `:controller`       | The controller name                                                     |
+| `:action`           | The action                                                              |
+| `:unpermitted_keys` | The unpermitted keys                                                    |
+
+#### `action_controller.rescue_from_handler`
+
+| Key                    | Value                          |
+| ---------------------- | ------------------------------ |
+| `:exception_class`     | The class of the exception     |
+| `:exception_message`   | The message of the exception   |
+| `:exception_backtrace` | The backtrace of the exception |
+
+
+### Action Controller: Caching
+
+#### `action_controller.fragment_cache`
+
+| Key            | Value            |
+| -------------- | ---------------- |
+| `:method`      | Cache method (e.g. `write_fragment`, `read_fragment`, `exist_fragment?`, `expire_fragment` |
+| `:key`         | The complete key |
+| `:duration_ms` | Duration in ms   |
+
+
+### Action Dispatch
+
+#### `action_dispatch.redirect`
+
+| Key            | Value                                    |
+| -------------- | ---------------------------------------- |
+| `:location`    | URL to redirect to                       |
+| `:status`      | HTTP response code                       |
+| `:status_name` | HTTP response code                       |
+| `:duration_ms` | Total duration of the request in ms      |
+
+[`ActionDispatch::Request`]: https://api.rubyonrails.org/classes/ActionDispatch/Request.html
+[`ActionDispatch::Response`]: https://api.rubyonrails.org/classes/ActionDispatch/Response.html
+
+### Action Mailer
+
+#### `action_mailer.delivery_error`
+
+| Key                   | Value                                        |
+| --------------------- | -------------------------------------------- |
+| `:message_id`         | ID of the message, generated by the Mail gem |
+| `:exception_class`    | The class of the exception                   |
+| `:exception_message`  | The message of the exception                 |
+| `:mail`               | The encoded form of the mail                 |
+
+#### `action_mailer.delivered`
+
+| Key           | Value                                        |
+| ------------- | -------------------------------------------- |
+| `:message_id` | ID of the message, generated by the Mail gem |
+| `:duration`   | Total duration of the request in ms          |
+| `:mail`       | The encoded form of the mail                 |
+
+#### `action_mailer.delivery_skipped`
+
+| Key                   | Value                                                |
+| --------------------- | ---------------------------------------------------- |
+| `:message_id`         | ID of the message, generated by the Mail gem         |
+| `:mail`               | The encoded form of the mail                         |
+
+#### `action_mailer.processed`
+
+| Key           | Value                    |
+| ------------- | ------------------------ |
+| `:mailer`     | Name of the mailer class |
+| `:action`     | The action               |
+| `:duration`   | Duration in ms           |
+
+
+### Action View
+
+#### `action_view.render_template`
+
+| Key           | Value                                    |
+| ------------- | ---------------------------------------- |
+| `:identifier` | Full path to template                    |
+| `:layout`     | Applicable layout                        |
+| `:duration`   | Duration in ms                           |
+| `:gc`         | Amount spent in garbage collection in ms |
+
+#### `action_view.render_partial`
+
+| Key           | Value                                        |
+| ------------- | -------------------------------------------- |
+| `:identifier` | Full path to template                        |
+| `:layout`     | Applicable layout                            |
+| `:duration`   | Duration in ms                               |
+| `:gc`         | Amount spent in garbage collection in ms     |
+| `:cache_hit`  | `true` if the partial was fetched from cache |
+
+#### `action_view.render_collection`
+
+| Key             | Value                                    |
+| --------------- | ---------------------------------------- |
+| `:identifier`   | Full path to template                    |
+| `:layout`       | Applicable layout                        |
+| `:duration`     | Duration in ms                           |
+| `:gc`           | Amount spent in garbage collection in ms |
+| `:cache_hits`   | Number of partials fetched from cache    |
+| `:count`        | Size of collection                       |
+
+#### `action_view.render_layout`
+
+| Key             | Value                                    |
+| --------------- | ---------------------------------------- |
+| `:identifier`   | Full path to template                    |
+| `:duration`     | Duration in ms                           |
+| `:gc`           | Amount spent in garbage collection in ms |
+
+#### `action_view.render_start`
+
+| Key             | Value                                    |
+| --------------- | ---------------------------------------- |
+| `:identifier`   | Full path to template                    |
+| `:layout`       | Applicable layout                        |
+
+### Active Job
+
+#### `active_job.enqueued`
+
+| Key             | Value                        |
+| --------------- | ---------------------------- |
+| `:job_class`    | Job class name               |
+| `:job_id`       | Job ID                       |
+| `:queue`        | Queue name                   |
+| `:scheduled_at` | Time the job was scheduled   |
+
+#### `active_job.enqueue_failed`
+
+| Key                  | Value                        |
+| -------------------- | ---------------------------- |
+| `:job_class`         | Job class name               |
+| `:job_id`            | Job ID                       |
+| `:queue`             | Queue name                   |
+| `:exception_class`   | The class of the exception   |
+| `:exception_message` | The message of the exception |
+| `:scheduled_at`      | Time the job was scheduled   |
+
+#### `active_job.enqueue_aborted`
+
+| Key                  | Value                        |
+| -------------------- | ---------------------------- |
+| `:job_class`         | Job class name               |
+| `:job_id`            | Job ID                       |
+| `:queue`             | Queue name                   |
+| `:scheduled_at`      | Time the job was scheduled   |
+
+#### `active_job.retry_scheduled`
+
+| Key                  | Value                        |
+| -------------------- | ---------------------------- |
+| `:job_class`         | Job class name               |
+| `:job_id`            | Job ID                       |
+| `:executions`        | Number of attempts           |
+| `:wait_seconds`      | Seconds to wait before retry |
+| `:exception_class`   | The class of the exception   |
+| `:exception_message` | The message of the exception |
+
+#### `active_job.retry_stopped`
+
+| Key                  | Value                        |
+| -------------------- | ---------------------------- |
+| `:job_class`         | Job class name               |
+| `:job_id`            | Job ID                       |
+| `:executions`        | Number of attempts           |
+| `:exception_class`   | The class of the exception   |
+| `:exception_message` | The message of the exception |
+
+#### `active_job.bulk_enqueued`
+
+| Key               | Value                                  |
+| ----------------- | -------------------------------------- |
+| `:adapter`        | QueueAdapter object processing the job |
+| `:total_jobs`     | Total number of jobs enqueued          |
+| `:enqueued_count` | Count of successfully enqueued jobs    |
+| `:failed_count`   | Count of jobs that failed to enqueue   |
+| `:job_classes`    | Array of job class names               |
+
+#### `active_job.started`
+
+| Key            | Value                     |
+| -------------  | ------------------------- |
+| `:job_class`   | Job class name            |
+| `:job_id`      | Job ID                    |
+| `:queue`       | Queue name                |
+| `:enqueued_at` | Time the job was enqueued |
+
+#### `active_job.completed`
+
+| Key            | Value          |
+| -------------- | -------------- |
+| `:job_class`   | Job class name |
+| `:job_id`      | Job ID         |
+| `:queue`       | Queue name     |
+| `:duration_ms` | Duration in ms |
+
+#### `active_job.failed`
+
+| Key                  | Value                        |
+| -------------------- | ---------------------------- |
+| `:job_class`         | Job class name               |
+| `:job_id`            | Job ID                       |
+| `:queue`             | Queue name                   |
+| `:duration_ms`       | Duration in ms               |
+| `:exception_class`   | The class of the exception   |
+| `:exception_message` | The message of the exception |
+
+#### `active_job.aborted`
+
+| Key            | Value          |
+| -------------- | -------------- |
+| `:job_class`   | Job class name |
+| `:job_id`      | Job ID         |
+| `:queue`       | Queue name     |
+| `:duration_ms` | Duration in ms |
+
+#### `active_job.discarded`
+
+| Key                  | Value                        |
+| -------------------- | ---------------------------- |
+| `:job_class`         | Job class name               |
+| `:job_id`            | Job ID                       |
+| `:exception_class`   | The class of the exception   |
+| `:exception_message` | The message of the exception |
+
+#### `active_job.interrupt`
+
+| Key            | Value                        |
+| -------------- | ---------------------------- |
+| `:job_class`   | Job class name               |
+| `:job_id`      | Job ID                       |
+| `:description` | Description of the interrupt |
+| `:reason`      | Reason for the interrupt     |
+
+#### `active_job.resume`
+
+| Key            | Value                        |
+| -------------- | ---------------------------- |
+| `:job_class`   | Job class name               |
+| `:job_id`      | Job ID                       |
+| `:description` | Description of the interrupt |
+
+#### `active_job.step_skipped`
+
+| Key          | Value                          |
+| ------------ | ------------------------------ |
+| `:job_class` | Job class name                 |
+| `:job_id`    | Job ID                         |
+| `:step`      | Name of the step being skipped |
+
+#### `active_job.step_resumed`
+
+| Key          | Value                            |
+| ------------ | -------------------------------- |
+| `:job_class` | Job class name                   |
+| `:job_id`    | Job ID                           |
+| `:step`      | Name of the step being skipped   |
+| `:cursor`    | Cursor at which the step resumes |
+
+#### `active_job.step_started`
+
+| Key          | Value                            |
+| ------------ | -------------------------------- |
+| `:job_class` | Job class name                   |
+| `:job_id`    | Job ID                           |
+| `:step`      | Name of the step being skipped   |
+
+#### `active_job.step_interrupted`
+
+| Key          | Value                            |
+| ------------ | -------------------------------- |
+| `:job_class` | Job class name                   |
+| `:job_id`    | Job ID                           |
+| `:step`      | Name of the step being skipped   |
+| `:cursor`    | Cursor at which the step resumes |
+| `:duration`  | Duration in ms                   |
+
+#### `active_job.step_errored`
+
+| Key                  | Value                            |
+| -------------------- | -------------------------------- |
+| `:job_class`         | Job class name                   |
+| `:job_id`            | Job ID                           |
+| `:step`              | Name of the step being skipped   |
+| `:cursor`            | Cursor at which the step resumes |
+| `:duration`          | Duration in ms                   |
+| `:exception_class`   | The class of the exception       |
+| `:exception_message` | The message of the exception     |
+
+#### `active_job.step`
+
+| Key                  | Value                            |
+| -------------------- | -------------------------------- |
+| `:job_class`         | Job class name                   |
+| `:job_id`            | Job ID                           |
+| `:step`              | Name of the step being skipped   |
+| `:duration`          | Duration in ms                   |
+
+
+### Active Record
+
+#### `active_record.sql`
+
+| Key          | Value                                                  |
+| ------------ | ------------------------------------------------------ |
+| `:async`     | `true` if query is loaded asynchronously               |
+| `:name`      | Name of the operation                                  |
+| `:sql`       | SQL statement                                          |
+| `:cached`    | `true` is added when result comes from the query cache |
+| `:lock_wait` | How long the query waited to perform asynchronously    |
+| `:binds`     | Bind parameters                                        |
+
+#### `active_record.strict_loading_violation`
+
+| Key      | Value                                                   |
+| -------- | ------------------------------------------------------- |
+| `:owner` | Model with `strict_loading` enabled                     |
+| `:class` | Name of the class for the reflection of the association |
+| `:name`  | Name of the reflection of the association               |
+
+
+### Active Storage
+
+#### `active_storage.preview`
+
+| Key          | Value               |
+| ------------ | ------------------- |
+| `:key`       | Secure token        |
+
+### Active Storage: Storage Service
+
+#### `active_storage.service_upload`
+
+| Key          | Value                        |
+| ------------ | ---------------------------- |
+| `:key`       | Secure token                 |
+| `:checksum`  | Checksum to ensure integrity |
+
+#### `active_storage.service_streaming_download`
+
+| Key          | Value               |
+| ------------ | ------------------- |
+| `:key`       | Secure token        |
+
+#### `active_storage.service_download`
+
+| Key          | Value               |
+| ------------ | ------------------- |
+| `:key`       | Secure token        |
+
+#### `active_storage.service_delete`
+
+| Key          | Value               |
+| ------------ | ------------------- |
+| `:key`       | Secure token        |
+
+#### `active_storage.service_delete_prefixed`
+
+| Key          | Value               |
+| ------------ | ------------------- |
+| `:prefix`    | Key prefix          |
+
+#### `active_storage.service_exist`
+
+| Key          | Value                       |
+| ------------ | --------------------------- |
+| `:key`       | Secure token                |
+| `:exist`     | File or blob exists or not  |
+
+#### `active_storage.service_url`
+
+| Key          | Value               |
+| ------------ | ------------------- |
+| `:key`       | Secure token        |
+| `:url`       | Generated URL       |
+
+#### `active_storage.service_mirror`
+
+| Key             | Value                            |
+| --------------- | -------------------------------- |
+| `:key`          | Secure token                     |
+| `:checksum`  | Checksum to ensure integrity |
 
