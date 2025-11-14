@@ -608,14 +608,15 @@ Rails emits structured events across the framework covering controllers, jobs, d
 
 #### `active_record.sql`
 
-| Key          | Value                                                  |
-| ------------ | ------------------------------------------------------ |
-| `:async`     | `true` if query is loaded asynchronously               |
-| `:name`      | Name of the operation                                  |
-| `:sql`       | SQL statement                                          |
-| `:cached`    | `true` is added when result comes from the query cache |
-| `:lock_wait` | How long the query waited to perform asynchronously    |
-| `:binds`     | Bind parameters                                        |
+| Key            | Value                                                  |
+| -------------- | ------------------------------------------------------ |
+| `:async`       | `true` if query is loaded asynchronously               |
+| `:name`        | Name of the operation                                  |
+| `:sql`         | SQL statement                                          |
+| `:cached`      | `true` is added when result comes from the query cache |
+| `:lock_wait`   | How long the query waited to perform asynchronously    |
+| `:binds`       | Bind parameters                                        |
+| `:duration_ms` | Total duration of the query in ms                      |
 
 #### `active_record.strict_loading_violation`
 
