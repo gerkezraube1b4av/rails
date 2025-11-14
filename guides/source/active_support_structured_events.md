@@ -684,3 +684,14 @@ Rails emits structured events across the framework covering controllers, jobs, d
 | `:checksum`  | Checksum to ensure integrity |
 | `:duration_ms` | Total duration of the process |
 
+
+### Rails
+
+#### `rails.deprecation`
+
+| Key                    | Value                                                 |
+| ---------------------- | ------------------------------------------------------|
+| `:message`             | The deprecation warning                               |
+| `:callstack`           | Where the deprecation came from                       |
+| `:gem_name`            | Name of the gem reporting the deprecation             |
+| `:deprecation_horizon` | Version where the deprecated behavior will be removed |
