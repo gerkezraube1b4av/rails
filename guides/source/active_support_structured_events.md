@@ -82,7 +82,7 @@ Use namespaced identifiers:
 
 Names should reflect *what happened*, not how or why.
 
-### Event payloads
+### Event Payloads
 
 Payloads may be:
 
