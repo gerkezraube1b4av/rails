@@ -70,7 +70,7 @@ This attaches metadata and forwards the event to any configured subscribers.
 
 For full method signatures and advanced options (debug, caller depth, filtering rules), see the [EventReporter API documentation][].
 
-### Event names
+### Event Names
 
 Use namespaced identifiers:
 
